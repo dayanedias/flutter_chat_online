@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:chat_online/ui/components/chat_message.dart';
 import 'package:chat_online/ui/components/text_composer.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -72,16 +73,25 @@ class _ChatScreenState extends State<ChatScreen> {
       "uid" : user.uid,
       "senderName" : user.displayName,
       "senderPhotoUrl" : user.photoUrl,
+      "sendTime" : Timestamp.now(),
     };
 
     if(imgFile != null){
       StorageUploadTask task = FirebaseStorage.instance.ref().child(
-        DateTime.now().millisecondsSinceEpoch.toString()
+        user.uid + DateTime.now().millisecondsSinceEpoch.toString()
       ).putFile(imgFile);
+
+      setState(() {
+        _isLoading = true;
+      });
 
       StorageTaskSnapshot taskSnapshot = await task.onComplete;
       String url = await taskSnapshot.ref.getDownloadURL();
       data["imgUrl"] = url;
+
+      setState(() {
+        _isLoading = false;
+      });
     }
 
     if (text != null) data["text"] = text;
@@ -93,15 +103,33 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
-        title: Text("Olá", style: TextStyle(color: Colors.white),),
+        centerTitle: true,
+        title: _currentUser != null ?
+        Text("Olá, ${_currentUser.displayName}", style: TextStyle(color: Colors.white),) :
+        Text("Chat App", style: TextStyle(color: Colors.white),),
         elevation: 0,
+        actions: [
+          _currentUser != null ? IconButton(
+                icon: Icon(Icons.exit_to_app),
+                onPressed: () {
+                  FirebaseAuth.instance.signOut();
+                  googleSignIn.signOut();
+                  _scaffoldKey.currentState.showSnackBar(
+                      SnackBar(
+                        content: Text("Você deslogou com sucesso!"),
+                        backgroundColor: Colors.blue,
+                      )
+                  );
+                }
+              ) : Container()
+        ],
         backgroundColor: Colors.blue,
       ),
       body: Column(
         children: [
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: Firestore.instance.collection("messages").snapshots(),
+              stream: Firestore.instance.collection("messages").orderBy("sendTime").snapshots(),
               builder: (context, snapshot){
                 switch(snapshot.connectionState){
                   case ConnectionState.none:
@@ -116,15 +144,15 @@ class _ChatScreenState extends State<ChatScreen> {
                         itemCount: documents.length,
                         reverse: true,
                         itemBuilder: (context, index) {
-                            return ListTile(
-                              title: Text(documents[index].data["text"]),
-                            );
+                            return ChatMessage(documents[index].data,
+                                documents[index].data["uid"] == _currentUser?.uid);
                         }
                     );
                 }
               },
             ),
       ),
+          _isLoading ? LinearProgressIndicator() : Container(),
           TextComposer(_sendMessage),
         ],
       ),
