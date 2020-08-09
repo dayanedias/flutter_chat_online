@@ -36,7 +36,7 @@ class ChatMessage extends StatelessWidget {
                    Image.network(data["imgUrl"],
                    width: 250)
                        :
-                   Text(data["text"], style: TextStyle(color: Colors.red, fontSize: 16),),
+                   Text(data["text"], style: TextStyle(color: Colors.black, fontSize: 16),),
                    //Text(data["sendTime"].toString(), style: TextStyle(color: Colors.grey, fontSize: 10),),
                  ]
              ),
